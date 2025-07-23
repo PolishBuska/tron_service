@@ -204,6 +204,3 @@ The service follows clean architecture principles:
 - **Pydantic**: Data validation and serialization
 - **Pytest**: Testing framework
 
-## License
-
-This project is licensed under the MIT License.
