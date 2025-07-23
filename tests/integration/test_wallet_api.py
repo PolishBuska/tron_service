@@ -10,7 +10,6 @@ from app.models.wallet_request import Base
 from app.main import app
 from app.db.database import get_db
 
-# Set up test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_tron_wallet.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -28,7 +27,6 @@ def override_get_db():
         db.close()
 
 
-# Override the default dependency in the app
 app.dependency_overrides[get_db] = override_get_db
 
 
@@ -39,7 +37,6 @@ def setup_database():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
-    # Clean up after test
     Base.metadata.drop_all(bind=engine)
 
 
@@ -50,15 +47,12 @@ class TestWalletAPI:
     async def test_post_wallet_info_with_invalid_checksum(self):
         """Test POST /api/v1/wallet/info with invalid TRON address checksum."""
         async with AsyncClient(app=app, base_url="http://test") as client:
-            # Arrange - Use address with correct format but invalid checksum
             payload = {
-                "address": "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH12345678"  # Valid format, invalid checksum
+                "address": "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH12345678"
             }
 
-            # Act
             response = await client.post("/api/v1/wallet/info", json=payload)
 
-            # Assert - Should return 500 because address validation fails
             assert response.status_code == 500
             assert "Invalid TRON address" in response.json()["detail"]
 
@@ -66,25 +60,20 @@ class TestWalletAPI:
     async def test_post_wallet_info_invalid_address(self):
         """Test POST /api/v1/wallet/info with invalid address returns validation error."""
         async with AsyncClient(app=app, base_url="http://test") as client:
-            # Arrange - Invalid address
             payload = {
                 "address": "InvalidAddress!"
             }
 
-            # Act
             response = await client.post("/api/v1/wallet/info", json=payload)
 
-            # Assert - Pydantic validation error returns 422
             assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_get_wallet_requests(self):
         """Test GET /api/v1/wallet/requests returns paginated records."""
         async with AsyncClient(app=app, base_url="http://test") as client:
-            # Act
             response = await client.get("/api/v1/wallet/requests?page=1&page_size=10")
 
-            # Assert
             assert response.status_code == 200
             assert "records" in response.json()
             assert "page" in response.json()

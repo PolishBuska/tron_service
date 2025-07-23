@@ -99,7 +99,6 @@ class TestWalletService:
         assert result.error_message == error_message
         assert result.response_data is None
         
-        # Verify record was saved to database
         saved_record = in_memory_db.query(WalletRequest).filter_by(address=address).first()
         assert saved_record is not None
         assert saved_record.error_message == error_message
@@ -146,14 +145,11 @@ class TestWalletService:
     
     def test_get_wallet_requests_empty_database(self, wallet_service, in_memory_db):
         """Test retrieval from empty database."""
-        # Act
         result = wallet_service.get_wallet_requests(
             db=in_memory_db,
             page=1,
             page_size=10
         )
-        
-        # Assert
         assert result.total == 0
         assert result.page == 1
         assert result.page_size == 10
