@@ -106,7 +106,6 @@ class TestWalletService:
     
     def test_get_wallet_requests_pagination(self, wallet_service, in_memory_db):
         """Test pagination of wallet requests retrieval."""
-        # Arrange - Create test records
         addresses = [f"TTestAddress{i:036d}" for i in range(15)]
         for address in addresses:
             wallet_info = WalletInfoResponse(
@@ -121,28 +120,24 @@ class TestWalletService:
                 wallet_info=wallet_info
             )
         
-        # Act - Get first page
         page1_result = wallet_service.get_wallet_requests(
             db=in_memory_db,
             page=1,
             page_size=10
         )
         
-        # Assert - First page
         assert page1_result.total == 15
         assert page1_result.page == 1
         assert page1_result.page_size == 10
         assert page1_result.total_pages == 2
         assert len(page1_result.records) == 10
-        
-        # Act - Get second page
+
         page2_result = wallet_service.get_wallet_requests(
             db=in_memory_db,
             page=2,
             page_size=10
         )
-        
-        # Assert - Second page
+
         assert page2_result.total == 15
         assert page2_result.page == 2
         assert page2_result.page_size == 10

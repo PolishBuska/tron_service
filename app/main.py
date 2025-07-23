@@ -1,25 +1,31 @@
 """Main FastAPI application module."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
 
 from app.api.wallet import router as wallet_router
 from app.core.config import settings
+from app.core.exceptions import AppException
+from app.core.exception_handlers import (
+    app_exception_handler,
+    validation_exception_handler,
+    http_exception_handler,
+    general_exception_handler
+)
 from app.db.database import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    # Startup
-    init_db()
+    await init_db()
     yield
-    # Shutdown
     pass
 
 
-# Create FastAPI application
 app = FastAPI(
     title=settings.app_name,
     description="A microservice for retrieving TRON wallet information including balance, bandwidth, and energy",
@@ -30,13 +36,18 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure as needed for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
+# Add exception handlers
+app.add_exception_handler(AppException, app_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(StarletteHTTPException, http_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
 app.include_router(wallet_router)
 
 

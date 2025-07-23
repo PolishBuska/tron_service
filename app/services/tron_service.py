@@ -1,6 +1,6 @@
 """TRON network service for blockchain interactions."""
 
-import json
+import asyncio
 from typing import Dict, Any, Optional
 from tronpy import Tron
 from tronpy.exceptions import ValidationError, ApiError, BadAddress
@@ -31,30 +31,33 @@ class TronService:
         except Exception as e:
             raise TronNetworkException(f"Failed to create TRON client: {str(e)}")
     
-    def validate_address(self, address: str) -> bool:
-        """Validate TRON address format."""
+    async def validate_address(self, address: str) -> bool:
+        """Validate TRON address format asynchronously."""
         try:
-            return self._client.is_address(address)
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(None, self._client.is_address, address)
         except Exception:
             return False
     
     async def get_wallet_info(self, address: str) -> WalletInfoResponse:
         """Get wallet information including balance, bandwidth, and energy."""
-        if not self.validate_address(address):
+        if not await self.validate_address(address):
             raise InvalidAddressException(f"Invalid TRON address: {address}")
         
         try:
-            # Get account information
-            account_info = self._client.get_account(address)
+            loop = asyncio.get_event_loop()
             
-            # Extract balance (in SUN, convert to TRX)
+            account_info = await loop.run_in_executor(
+                None, self._client.get_account, address
+            )
+            
             balance_sun = account_info.get('balance', 0)
-            balance_trx = balance_sun / 1_000_000  # Convert SUN to TRX
+            balance_trx = balance_sun / 1_000_000
             
-            # Get account resources
-            resources = self._client.get_account_resource(address)
+            resources = await loop.run_in_executor(
+                None, self._client.get_account_resource, address
+            )
             
-            # Extract bandwidth and energy
             bandwidth = self._get_bandwidth_info(resources)
             energy = self._get_energy_info(resources)
             
@@ -75,12 +78,10 @@ class TronService:
     def _get_bandwidth_info(self, resources: Dict[str, Any]) -> Optional[float]:
         """Extract bandwidth information from account resources."""
         try:
-            # Free bandwidth
             free_bandwidth_limit = resources.get('freeNetLimit', 0)
             free_bandwidth_used = resources.get('freeNetUsed', 0)
             free_bandwidth_available = free_bandwidth_limit - free_bandwidth_used
             
-            # Acquired bandwidth (staked)
             acquired_bandwidth_limit = resources.get('NetLimit', 0)
             acquired_bandwidth_used = resources.get('NetUsed', 0)
             acquired_bandwidth_available = acquired_bandwidth_limit - acquired_bandwidth_used

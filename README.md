@@ -1,6 +1,26 @@
 # TRON Wallet Service
 
-A microservice for retrieving TRON wallet information including balance, bandwidth, and energy.
+A production-ready microservice for retrieving comprehensive TRON blockchain wallet information including balance, bandwidth, and energy resources.
+
+## What is TRON?
+
+TRON is a high-performance blockchain platform designed for building decentralized applications (dApps) and smart contracts. Key characteristics:
+
+- **High Throughput**: Supports thousands of transactions per second
+- **Low Fees**: Minimal transaction costs compared to other blockchains
+- **Resource Model**: Uses bandwidth and energy instead of traditional gas fees
+- **DPoS Consensus**: Delegated Proof of Stake for fast finality
+- **Smart Contracts**: Full support for Ethereum-compatible smart contracts
+
+## What is this service for?
+
+This microservice provides a convenient REST API to retrieve essential information about TRON wallet addresses without requiring direct blockchain integration. It's designed for:
+
+- **Financial Applications**: Check wallet balances for payment processing
+- **DeFi Platforms**: Monitor user resources for transaction feasibility
+- **Analytics Tools**: Gather wallet statistics and usage patterns
+- **Monitoring Systems**: Track resource consumption and availability
+- **Integration Services**: Provide TRON data to external systems
 
 ## Features
 

@@ -4,8 +4,8 @@ import json
 import math
 from datetime import datetime
 from typing import List, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import desc, select, func
 
 from app.core.exceptions import DatabaseException
 from app.models.wallet_request import WalletRequest
@@ -20,17 +20,15 @@ class WalletService:
         """Initialize wallet service with dependencies."""
         self.tron_service = tron_service
     
-    async def get_wallet_info_and_save(self, address: str, db: Session) -> WalletInfoResponse:
+    async def get_wallet_info_and_save(self, address: str, db: AsyncSession) -> WalletInfoResponse:
         """Get wallet information from TRON network and save request to database."""
         error_message = None
         wallet_info = None
         
         try:
-            # Get wallet information from TRON network
             wallet_info = await self.tron_service.get_wallet_info(address)
         except Exception as e:
             error_message = str(e)
-            # Create empty wallet info for failed requests
             wallet_info = WalletInfoResponse(
                 address=address,
                 balance=None,
@@ -38,9 +36,8 @@ class WalletService:
                 energy=None
             )
         
-        # Save request to database
         try:
-            self._save_wallet_request(
+            await self._save_wallet_request(
                 db=db,
                 address=address,
                 wallet_info=wallet_info,
@@ -49,20 +46,19 @@ class WalletService:
         except Exception as e:
             raise DatabaseException(f"Failed to save wallet request: {str(e)}")
         
-        # If there was an error getting wallet info, re-raise it after saving
         if error_message:
             raise Exception(error_message)
         
         return wallet_info
     
-    def _save_wallet_request(
+    async def _save_wallet_request(
         self,
-        db: Session,
+        db: AsyncSession,
         address: str,
         wallet_info: WalletInfoResponse,
         error_message: str = None
     ) -> WalletRequest:
-        """Save wallet request to database."""
+        """Save wallet request to database asynchronously."""
         try:
             # Prepare response data
             response_data = None
@@ -74,7 +70,6 @@ class WalletService:
                     "energy": wallet_info.energy
                 })
             
-            # Create wallet request record
             wallet_request = WalletRequest(
                 address=address,
                 balance=wallet_info.balance,
@@ -86,39 +81,38 @@ class WalletService:
             )
             
             db.add(wallet_request)
-            db.commit()
-            db.refresh(wallet_request)
+            await db.commit()
+            await db.refresh(wallet_request)
             
             return wallet_request
             
         except Exception as e:
-            db.rollback()
+            await db.rollback()
             raise DatabaseException(f"Failed to save wallet request: {str(e)}")
     
-    def get_wallet_requests(
+    async def get_wallet_requests(
         self,
-        db: Session,
+        db: AsyncSession,
         page: int = 1,
         page_size: int = 10
     ) -> WalletRequestsResponse:
-        """Get paginated list of wallet requests from database."""
+        """Get paginated list of wallet requests from database asynchronously."""
         try:
-            # Calculate offset
             offset = (page - 1) * page_size
             
-            # Get total count
-            total = db.query(WalletRequest).count()
+            count_stmt = select(func.count(WalletRequest.id))
+            count_result = await db.execute(count_stmt)
+            total = count_result.scalar()
             
-            # Get paginated records
-            records = (
-                db.query(WalletRequest)
+            stmt = (
+                select(WalletRequest)
                 .order_by(desc(WalletRequest.request_timestamp))
                 .offset(offset)
                 .limit(page_size)
-                .all()
             )
+            result = await db.execute(stmt)
+            records = result.scalars().all()
             
-            # Convert to response schema
             wallet_records = [
                 WalletRequestRecord(
                     id=record.id,
@@ -132,7 +126,6 @@ class WalletService:
                 for record in records
             ]
             
-            # Calculate total pages
             total_pages = math.ceil(total / page_size) if total > 0 else 1
             
             return WalletRequestsResponse(
