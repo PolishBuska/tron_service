@@ -3,7 +3,7 @@
 import json
 from typing import Dict, Any, Optional
 from tronpy import Tron
-from tronpy.exceptions import TronError, ValidationError
+from tronpy.exceptions import ValidationError, ApiError, BadAddress
 
 from app.core.config import settings
 from app.core.exceptions import InvalidAddressException, TronNetworkException
@@ -65,9 +65,9 @@ class TronService:
                 energy=energy
             )
             
-        except ValidationError as e:
+        except (ValidationError, BadAddress) as e:
             raise InvalidAddressException(f"Invalid address format: {str(e)}")
-        except TronError as e:
+        except ApiError as e:
             raise TronNetworkException(f"TRON network error: {str(e)}")
         except Exception as e:
             raise TronNetworkException(f"Unexpected error: {str(e)}")

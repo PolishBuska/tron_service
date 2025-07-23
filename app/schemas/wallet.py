@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class WalletAddressRequest(BaseModel):
@@ -11,7 +11,8 @@ class WalletAddressRequest(BaseModel):
     
     address: str = Field(..., description="TRON wallet address")
     
-    @validator('address')
+    @field_validator('address')
+    @classmethod
     def validate_address(cls, v: str) -> str:
         """Validate TRON address format."""
         if not v or len(v) != 42 or not v.startswith('T'):
@@ -22,17 +23,18 @@ class WalletAddressRequest(BaseModel):
 class WalletInfoResponse(BaseModel):
     """Schema for wallet information response."""
     
+    model_config = ConfigDict(from_attributes=True)
+    
     address: str = Field(..., description="TRON wallet address")
     balance: Optional[float] = Field(None, description="TRX balance in TRX units")
     bandwidth: Optional[float] = Field(None, description="Available bandwidth")
     energy: Optional[float] = Field(None, description="Available energy")
-    
-    class Config:
-        from_attributes = True
 
 
 class WalletRequestRecord(BaseModel):
     """Schema for wallet request record."""
+    
+    model_config = ConfigDict(from_attributes=True)
     
     id: int = Field(..., description="Record ID")
     address: str = Field(..., description="TRON wallet address")
@@ -41,9 +43,6 @@ class WalletRequestRecord(BaseModel):
     energy: Optional[float] = Field(None, description="Available energy")
     request_timestamp: datetime = Field(..., description="Request timestamp")
     error_message: Optional[str] = Field(None, description="Error message if any")
-    
-    class Config:
-        from_attributes = True
 
 
 class WalletRequestsResponse(BaseModel):

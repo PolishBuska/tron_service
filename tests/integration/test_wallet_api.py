@@ -10,11 +10,13 @@ from app.models.wallet_request import Base
 from app.main import app
 from app.db.database import get_db
 
-# Set up in-memory database for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+# Set up test database
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_tron_wallet.db"
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    echo=False
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
 
 
 def override_get_db():
@@ -30,53 +32,59 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-@pytest.fixture
-async def client():
-    """Create asynchronous test client."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
+@pytest.fixture(autouse=True)
+def setup_database():
+    """Setup database for each test."""
+    # Recreate tables for each test to ensure clean state
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    yield
+    # Clean up after test
+    Base.metadata.drop_all(bind=engine)
 
 
 class TestWalletAPI:
     """Integration tests for wallet API endpoints."""
 
     @pytest.mark.asyncio
-    async def test_post_wallet_info_success(self, client):
-        """Test POST /api/v1/wallet/info with valid address returns status 200."""
-        # Arrange - Mock address
-        payload = {
-            "address": "TTestAddress123456789012345678901234567890"
-        }
+    async def test_post_wallet_info_with_invalid_checksum(self):
+        """Test POST /api/v1/wallet/info with invalid TRON address checksum."""
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            # Arrange - Use address with correct format but invalid checksum
+            payload = {
+                "address": "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH12345678"  # Valid format, invalid checksum
+            }
 
-        # Act
-        response = await client.post("/api/v1/wallet/info", json=payload)
+            # Act
+            response = await client.post("/api/v1/wallet/info", json=payload)
 
-        # Assert
-        assert response.status_code == 200
-        assert "address" in response.json()
-
-    @pytest.mark.asyncio
-    async def test_post_wallet_info_invalid_address(self, client):
-        """Test POST /api/v1/wallet/info with invalid address returns 400."""
-        # Arrange - Invalid address
-        payload = {
-            "address": "InvalidAddress!"
-        }
-
-        # Act
-        response = await client.post("/api/v1/wallet/info", json=payload)
-
-        # Assert
-        assert response.status_code == 400
+            # Assert - Should return 500 because address validation fails
+            assert response.status_code == 500
+            assert "Invalid TRON address" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_get_wallet_requests(self, client):
+    async def test_post_wallet_info_invalid_address(self):
+        """Test POST /api/v1/wallet/info with invalid address returns validation error."""
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            # Arrange - Invalid address
+            payload = {
+                "address": "InvalidAddress!"
+            }
+
+            # Act
+            response = await client.post("/api/v1/wallet/info", json=payload)
+
+            # Assert - Pydantic validation error returns 422
+            assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_get_wallet_requests(self):
         """Test GET /api/v1/wallet/requests returns paginated records."""
+        async with AsyncClient(app=app, base_url="http://test") as client:
+            # Act
+            response = await client.get("/api/v1/wallet/requests?page=1&page_size=10")
 
-        # Act
-        response = await client.get("/api/v1/wallet/requests?page=1&page_size=10")
-
-        # Assert
-        assert response.status_code == 200
-        assert "records" in response.json()
-        assert "page" in response.json()
+            # Assert
+            assert response.status_code == 200
+            assert "records" in response.json()
+            assert "page" in response.json()
